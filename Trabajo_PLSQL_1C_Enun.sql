@@ -196,7 +196,7 @@ end;
 -- * P4.2
 --
 -- * P4.3
---
+-- Hemos utilizado una estrategia de programación defensiva
 -- * P4.4
 --
 -- * P4.5
