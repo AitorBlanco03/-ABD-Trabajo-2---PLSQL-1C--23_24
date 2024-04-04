@@ -8,7 +8,7 @@
  *      - Aitor Blanco Fernández (abf1005@alu.ubu.es)
  *
  * Github: https://github.com/AitorBlanco03/-ABD-Trabajo-2---PLSQL-1C--23_24.git
- *Versión:2.1
+ *Versión:2.2
  */
 
 -- Se eliminan las tablas existentes en caso de que ya existan.
@@ -264,8 +264,9 @@ begin
   begin
     -- Iniciamos la base de datos para los tests en la base de datos.
     inicializa_test;
-    dbms_output.put_line('CASO DE PRUEBA 1: Reserva correcta--------------------');
-    --TODO: HACER
+    reservar_evento('12345678A','concierto_la_moda',date '2024-6-27');
+    reservar_evento('12345678A','teatro_impro',date '2024-7-1');
+    /*reservar_evento('11111111B','teatro_impro',date '2024-7-1');*/
   end;
   
   --CASO DE PRUEBA 2: Evento pasado.
@@ -277,11 +278,39 @@ begin
   end;
   
   --CASO DE PRUEBA 3: Evento inexistente.
+ declare
+  mensajeError varchar(100);
+  arg_nombre_evento varchar(100);
   begin
+    dbms_output.put_line('CASO DE PRUEBAS 3: Evento inexistente--------------------');
     -- Inicializamos la base de datos para los tests en la base de datos.
     inicializa_test;
-    dbms_output.put_line('CASO DE PRUEBA 3: Evento inexistente--------------------');
-    --TODO: HACER
+    -- Declaramos el evento que vamos a querer reservar que no existe
+    arg_nombre_evento:='Monologo chiquito de la calzada';
+    -- Guardamos el mensaje de error que esperamos de la excepción
+    mensajeError:='ORA-20003: El evento ' || arg_nombre_evento || ' no existe';
+    -- Intentamos hacer la reserva de el evento que no existe
+    reservar_evento('12345678A',arg_nombre_evento,date '2024-6-27');
+    dbms_output.put_line('MAL: No se ha lanzado ninguna excepción');
+    --  Cazamos la excepción que salte
+    exception
+        when others then
+            if (SQLCODE=-20003) then --En caso de que salte la excepción que queremos la -2003 
+                dbms_output.put_line('BIEN,Lanza la excepción -20003 cuando se intenta reservar un evento no existente'); --Imprimimos que esta correcto
+                if(SQLERRM=mensajeError) then
+                    dbms_output.put_line('BIEN,Manda el mensaje de error correcto: '|| SQLERRM);
+                else
+                    dbms_output.put_line('MAL,Lanza la excepción -20003 pero no el mensaje de error correcto');
+                end if;
+                
+            else --En caso de que nos de cualquiera otra excepción
+                dbms_output.put_line('MAL: Lanza algun tipo de excepción, que no es la que buscamos');
+                dbms_output.put_line('Error nro: '||SQLCODE);
+                dbms_output.put_line('Mensaje: '||SQLERRM);
+                
+            end if;  
+        
+        
   end;
   
 
