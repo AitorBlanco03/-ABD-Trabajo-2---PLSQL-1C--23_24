@@ -8,7 +8,7 @@
  *      - Aitor Blanco Fernández (abf1005@alu.ubu.es)
  *
  * Github: https://github.com/AitorBlanco03/-ABD-Trabajo-2---PLSQL-1C--23_24.git
- *Versión:2.5
+ *Versión:3.0
  */
 
 -- Se eliminan las tablas existentes en caso de que ya existan.
@@ -259,14 +259,38 @@ exec inicializa_test;
 -- Procedimiento almacenado que ejecuta los tests para el procedimiento reservar_evento.
 create or replace procedure test_reserva_evento is
 begin
-	 
+	 declare 
+     numero integer;
   --CASO DE PRUEBA 1: Reserva correcta, se realiza.
   begin
     -- Iniciamos la base de datos para los tests en la base de datos.
     inicializa_test;
+    dbms_output.put_line('CASO DE PRUEBAS 1: Reserva Correcta, se realiza--------------------');
+    --Reservamos el evento de manera correcta
     reservar_evento('12345678A','concierto_la_moda',date '2024-6-27');
-    reservar_evento('12345678A','teatro_impro',date '2024-7-1');
-    /*reservar_evento('11111111B','teatro_impro',date '2024-7-1');*/
+    --Hacemos un select de la cantidad de reservas que hay en la tabla de reservas con los datos que hemos metido despues de realizar la reserva
+    select count(*) 
+    into numero 
+    from reservas  
+    where cliente='12345678A' 
+    AND evento=(select id_evento from eventos where nombre_evento='concierto_la_moda') --Aqui realizamos un select ya que se han guardado en la base de datos con el id del evento en vez de con el nombre
+    and fecha=date '2024-6-27';
+    commit;
+    --En caso de que el numeo de reservas solo sea 1
+    if numero=1 then
+        dbms_output.put_line('BIEN: Se ha realizado la reserva correctamente en la base de datos');--Imprimimos por pantalla que se realizado la unica reserva que se tiene que hacer correctamente
+    else-- En caso de que en nº de reservas sea 0 o más de 1 nos devolvera que hemos hecho mal la reserva ya que o no se habra hecho o se habra hecho mas de una vez
+        dbms_output.put_line('MAL: No se ha realizado la reserva correcta');
+     end if;
+     
+    exception--En caso de que salte una excepción imprimiremos por pantalla que lo hemos hecho mal y que excepciñon es con su mensaje
+        when others then
+            dbms_output.put_line('MAL: ha lanzado una excepcion cuando no debería');
+            dbms_output.put_line('Error nro: '||SQLCODE);
+            dbms_output.put_line('Mensaje: '||SQLERRM);
+                
+            
+    
   end;
   
   --CASO DE PRUEBA 2: Evento pasado.
