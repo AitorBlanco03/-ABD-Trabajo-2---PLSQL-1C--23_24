@@ -8,7 +8,7 @@
  *      - Aitor Blanco Fernández (abf1005@alu.ubu.es)
  *
  * Github: https://github.com/AitorBlanco03/-ABD-Trabajo-2---PLSQL-1C--23_24.git
- *Versión:2.4
+ *Versión:2.5
  */
 
 -- Se eliminan las tablas existentes en caso de que ya existan.
@@ -112,7 +112,7 @@ create or replace procedure reservar_evento( arg_NIF_cliente varchar,
         where nombre_evento = arg_nombre_evento;
         
         -- Si la fecha del evento es anterior a la proporcionada, lanzamos la excepción -20001.
-        if v_fecha_evento < arg_fecha then
+        if v_fecha_evento > arg_fecha then
             raise_application_error(-20001, 'No se pueden reservar eventos pasados');
         end if;
         
@@ -274,7 +274,26 @@ begin
     -- Inicializamos la base de datos para los tests en la base de datos.
     inicializa_test;
     dbms_output.put_line('CASO DE PRUEBAS 2: Evento pasado--------------------');
-    --TODO: HACER
+    reservar_evento('12345678A','concierto_la_moda',date '2023-6-25');
+    -- En caso de que no salte la excepción nos saldra por pantalla que ha fallado
+    dbms_output.put_line('MAL: No se ha lanzado ninguna excepción');
+    --  Cazamos la excepción que salte
+    exception
+        when others then
+            if (SQLCODE=-20001) then --En caso de que salte la excepción que queremos la -20001
+                dbms_output.put_line('BIEN,Lanza la excepción -20001 cuando se intenta reservar un evento por un cliente que no existe'); --Imprimimos que esta correcto
+                if(SQLERRM='ORA-20001: No se pueden reservar eventos pasados') then --Comprobamos que lanza el mensaje tambien correcto
+                    dbms_output.put_line('BIEN,Manda el mensaje de error correcto: '|| SQLERRM); -- Imprimimos que el mensaje esta correcto
+                else --En caso de que el mensaje no este correcto
+                    dbms_output.put_line('MAL,Lanza la excepción -20001 pero no el mensaje de error correcto'); --Imprimimos que esta incorrecto
+                end if;
+                
+            else --En caso de que nos de cualquiera otra excepción la imprimieremos por pantalla junto con su mensaje de error
+                dbms_output.put_line('MAL: Lanza algun tipo de excepción, que no es la que buscamos');
+                dbms_output.put_line('Error nro: '||SQLCODE);
+                dbms_output.put_line('Mensaje: '||SQLERRM);
+                
+            end if;
   end;
   
   --CASO DE PRUEBA 3: Evento inexistente.
@@ -291,7 +310,7 @@ begin
     mensajeError:='ORA-20003: El evento ' || arg_nombre_evento || ' no existe';
     -- Intentamos hacer la reserva de el evento que no existe
     reservar_evento('12345678A',arg_nombre_evento,date '2024-6-27');
-    -- En caso de que salte la excepción nos saldra por pantalla que ha fallado
+    -- En caso de que no salte la excepción nos saldra por pantalla que ha fallado
     dbms_output.put_line('MAL: No se ha lanzado ninguna excepción');
     --  Cazamos la excepción que salte
     exception
@@ -322,13 +341,13 @@ begin
     dbms_output.put_line('CASO DE PRUEBA 4: Cliente inexistente--------------------');
     -- Intentamos reservar un evento con un cliente que no existe
     reservar_evento('12345678B','concierto_la_moda',date '2024-6-27');
-    -- En caso de que salte la excepción nos saldra por pantalla que ha fallado
+    -- En caso de que no salte la excepción nos saldra por pantalla que ha fallado
     dbms_output.put_line('MAL: No se ha lanzado ninguna excepción');
     --  Cazamos la excepción que salte
     exception
         when others then
-            if (SQLCODE=-20002) then --En caso de que salte la excepción que queremos la 20002
-                dbms_output.put_line('BIEN,Lanza la excepción 20002 cuando se intenta reservar un evento por un cliente que no existe'); --Imprimimos que esta correcto
+            if (SQLCODE=-20002) then --En caso de que salte la excepción que queremos la -20002
+                dbms_output.put_line('BIEN,Lanza la excepción -20002 cuando se intenta reservar un evento por un cliente que no existe'); --Imprimimos que esta correcto
                 if(SQLERRM='ORA-20002: Cliente inexistente') then --Comprobamos que lanza el mensaje tambien correcto
                     dbms_output.put_line('BIEN,Manda el mensaje de error correcto: '|| SQLERRM); -- Imprimimos que el mensaje esta correcto
                 else --En caso de que el mensaje no este correcto
@@ -350,7 +369,7 @@ begin
     dbms_output.put_line('CASO DE PRUEBA 5: El cliente no tiene suficiente saldo---------------------');
     -- Intentamos hacer la reserva de el un evento sin tener el saldo suficiente
     reservar_evento('11111111B','teatro_impro',date '2024-7-1');
-     -- En caso de que salte la excepción nos saldra por pantalla que ha fallado
+     -- En caso de que no salte la excepción nos saldra por pantalla que ha fallado
     dbms_output.put_line('MAL: No se ha lanzado ninguna excepción');
     --  Cazamos la excepción que salte
     exception
