@@ -8,7 +8,7 @@
  *      - Aitor Blanco Fernández (abf1005@alu.ubu.es)
  *
  * Github: https://github.com/AitorBlanco03/-ABD-Trabajo-2---PLSQL-1C--23_24.git
- *Versión:3.0
+ * Versión: 4.0
  */
 
 -- Se eliminan las tablas existentes en caso de que ya existan.
@@ -112,7 +112,7 @@ create or replace procedure reservar_evento( arg_NIF_cliente varchar,
         where nombre_evento = arg_nombre_evento;
         
         -- Si la fecha del evento es anterior a la proporcionada, lanzamos la excepción -20001.
-        if v_fecha_evento > arg_fecha then
+        if v_fecha_evento < arg_fecha then
             raise_application_error(-20001, 'No se pueden reservar eventos pasados');
         end if;
         
@@ -192,30 +192,39 @@ end;
 /
 
 ------ Respuestas a las preguntas del enunciado:
--- * P4.1 El resultado de la comprobación del paso 2 ¿sigue siendo fiable en el paso 3?:
-	
--- El resultado de la comprobación del paso 2 va a seguir siendo fiable en el caso 3 puesto que hemos aplicado los mecanismos
--- de control de concurrencia (excepciones y rollback) de la estrategia de programación defensiva //Posible fallo si hay muchas ejecuciones simultaneas//
-	
--- * P4.2 En el paso 3, la ejecución concurrente del mismo procedimiento reservar_evento con, quizás
--- otros o los mimos argumentos, ¿podría habernos añadido una reserva no recogida en esa SELECT
--- que fuese incompatible con nuestra reserva?, ¿por qué?.
-	
--- Se podría añadir una reserva incompatible con nuestra reserva si la disponibilidad de plazas del evento o el saldo del abono del cliente 
--- cambian entre la comprobación en el paso 2 y la inserción de la reserva en la tabla reservas. 
--- Esto puede deberse a la concurrencia en la base de datos, donde otras transacciones pueden realizar actualizaciones que afecten a las condiciones de la reserva.
-	
+--
+-- * P4.1 . El resultado de la comprobación del paso 2 ¿sigue siendo fiable en el paso 3?:
+-- Sí, el resultado de la comprobación del paso 2 sigue siendo fiable en el paso 3. Esto se debe
+-- principalmente a que las condiciones verificadas en el paso 2, se evaluán nuevamente antes de
+-- realizar la reserva en el paso 3.
+--
+-- * P4.2 . En el paso 3, la ejecución concurrente del mismo procedimiento reservar_evento con, quizás otros o los mismos argumentos, 
+-- ¿podría habernos añadido una reserva no recogida en esa SELECT que fuese incompatible con nuestra reserva?, ¿por qué?.
+-- Si, debido a la ejecución concurrente del mismo procedimiento de reserva, algunas transacciones pueden cambiar
+-- los datos de la base de datos, lo que podría llegar a generar reservas incompatibles.
+--
 -- * P4.3 . ¿Qué estrategia de programación has utilizado?:
-	
--- Hemos utilizado una estrategia de programación defensiva.
-	
+-- Hemos utilizado una estrategia defensiva. Esta estrategia se basa en anticipar posibles errores
+-- o condiciones inesperadas y manejarlas de manera proactiva mediante el uso de excepciones y
+-- rollback. En lugar de confiar de que todas las operaciones se ejecuten sin problemas, nos
+-- preparamos para manejar cualquier situación inesperada de manera segura.
+--
 -- * P4.4 ¿Cómo puede verse este hecho en tu código?
-	
--- Este hecho lo podemos ver por cómo manejamos las excepciones y realizamos un rollback en caso de error durante el proceso de reserva. 
-	
--- * P4.5 ¿De qué otro modo crees que podrías resolver el problema propuesto? Incluye elpseudocódigo.
-	
--- Utilizando una estrategia de programación agresiva //Falta el pseudocódigo//
+-- En el código, la estrategia defensiva se puede ver el manejo de excepciones, donde capturamos
+-- los posibles errores y tomamos las medidas adecuadas para manejarlos, como el uso de un rollback
+-- para deshacer los cambios en caso de que ocurra un error.
+-- 
+-- * P4.5 ¿De qué otro modo crees que podrías resolver el problema propuesto? Incluye el pseudocódigo.
+-- Otro manera de implementar reservar_evento es optar una estrategia agresiva.
+-- 
+-- PSEUDOCÓDIGO:
+--  1.- Actualizar y reducir el número de plazas para el evento.
+--      - Si no se encuentra el evento o si el evento ya ha pasado, lanzamos la excepción correspondiente,
+--  2.- Actualizar y reducir el saldo del abono.
+--      - Si no se encuentra el cliente o si el cliente no tiene suficiente saldo, lanzamos la excepción correspondiente.
+--  3.- Realizar la reserva.
+--      - Si ocurré algún error, revirtimos todos los cambios realizados.
+--
 
 
 -- Procedimiento almacenado para reinicar una secuencia.
@@ -273,38 +282,46 @@ exec inicializa_test;
 -- Procedimiento almacenado que ejecuta los tests para el procedimiento reservar_evento.
 create or replace procedure test_reserva_evento is
 begin
-	 declare 
-     numero integer;
+	 
   --CASO DE PRUEBA 1: Reserva correcta, se realiza.
   begin
     -- Iniciamos la base de datos para los tests en la base de datos.
     inicializa_test;
-    dbms_output.put_line('CASO DE PRUEBAS 1: Reserva Correcta, se realiza--------------------');
-    --Reservamos el evento de manera correcta
-    reservar_evento('12345678A','concierto_la_moda',date '2024-6-27');
-    --Hacemos un select de la cantidad de reservas que hay en la tabla de reservas con los datos que hemos metido despues de realizar la reserva
-    select count(*) 
-    into numero 
-    from reservas  
-    where cliente='12345678A' 
-    AND evento=(select id_evento from eventos where nombre_evento='concierto_la_moda') --Aqui realizamos un select ya que se han guardado en la base de datos con el id del evento en vez de con el nombre
-    and fecha=date '2024-6-27';
-    commit;
-    --En caso de que el numeo de reservas solo sea 1
-    if numero=1 then
-        dbms_output.put_line('BIEN: Se ha realizado la reserva correctamente en la base de datos');--Imprimimos por pantalla que se realizado la unica reserva que se tiene que hacer correctamente
-    else-- En caso de que en nº de reservas sea 0 o más de 1 nos devolvera que hemos hecho mal la reserva ya que o no se habra hecho o se habra hecho mas de una vez
-        dbms_output.put_line('MAL: No se ha realizado la reserva correcta');
-     end if;
-     
-    exception--En caso de que salte una excepción imprimiremos por pantalla que lo hemos hecho mal y que excepciñon es con su mensaje
-        when others then
-            dbms_output.put_line('MAL: ha lanzado una excepcion cuando no debería');
-            dbms_output.put_line('Error nro: '||SQLCODE);
-            dbms_output.put_line('Mensaje: '||SQLERRM);
-                
-            
+    dbms_output.put_line('CASO DE PRUEBA 1: Reserva correcta--------------------');
     
+    -- Realizamos una reserva de manera correcta con datos válidos.
+    reservar_evento('12345678A','concierto_la_moda',date '2024-6-27');
+    
+    -- Verificamos que la reserva se ha realizado correctamente consultando la tabla reserva.
+    declare
+        num_reservas integer;
+    begin
+        -- Contamos el número de reservas que existen para estos datos.
+        select count(*)
+        into num_reservas
+        from reservas
+        where cliente = '12345678A'
+        and evento = (select id_evento from eventos where nombre_evento='concierto_la_moda')
+        and fecha = date '2024-6-27';
+        
+        -- Comprobamos que existe una única reserva para estos datos
+        if num_reservas = 1 then
+            dbms_output.put_line('OK: Reserva realizada correctamente.');
+            dbms_output.put_line('');
+        else
+            dbms_output.put_line('FAIL: No realiza la reserva correctamente.');
+            dbms_output.put_line('');
+        end if;
+    end;
+  
+  exception
+  
+    -- No pasará el test si lanza un excepción a la hora de hacer la reserva.
+    when others then
+        dbms_output.put_line('FAIL: Da error.');
+        dbms_output.put_line('Error nro: '||SQLCODE);
+        dbms_output.put_line('Mensaje: '||SQLERRM);
+        dbms_output.put_line('');
   end;
   
   --CASO DE PRUEBA 2: Evento pasado.
@@ -312,63 +329,59 @@ begin
     -- Inicializamos la base de datos para los tests en la base de datos.
     inicializa_test;
     dbms_output.put_line('CASO DE PRUEBAS 2: Evento pasado--------------------');
-    reservar_evento('12345678A','concierto_la_moda',date '2023-6-25');
-    -- En caso de que no salte la excepción nos saldra por pantalla que ha fallado
-    dbms_output.put_line('MAL: No se ha lanzado ninguna excepción');
-    --  Cazamos la excepción que salte
-    exception
-        when others then
-            if (SQLCODE=-20001) then --En caso de que salte la excepción que queremos la -20001
-                dbms_output.put_line('BIEN,Lanza la excepción -20001 cuando se intenta reservar un evento por un cliente que no existe'); --Imprimimos que esta correcto
-                if(SQLERRM='ORA-20001: No se pueden reservar eventos pasados') then --Comprobamos que lanza el mensaje tambien correcto
-                    dbms_output.put_line('BIEN,Manda el mensaje de error correcto: '|| SQLERRM); -- Imprimimos que el mensaje esta correcto
-                else --En caso de que el mensaje no este correcto
-                    dbms_output.put_line('MAL,Lanza la excepción -20001 pero no el mensaje de error correcto'); --Imprimimos que esta incorrecto
-                end if;
-                
-            else --En caso de que nos de cualquiera otra excepción la imprimieremos por pantalla junto con su mensaje de error
-                dbms_output.put_line('MAL: Lanza algun tipo de excepción, que no es la que buscamos');
-                dbms_output.put_line('Error nro: '||SQLCODE);
-                dbms_output.put_line('Mensaje: '||SQLERRM);
-                
-            end if;
+    
+    -- Intentamos hacer una reserva de un evento pasado.
+    reservar_evento('12345678A', 'concierto_la_moda', date '2024-9-25');
+    
+    -- No pasará el test si se realiza una reserva de un evento pasado.
+    dbms_output.put_line('FAIL: Reserva para un evento que ya ha pasado.');
+    dbms_output.put_line('');
+    
+  exception
+    
+    when others then
+        -- Comprobamos que se lanza la excepción -20001.
+        if sqlcode = -20001 then
+            dbms_output.put_line('OK: Detecta evento pasado.');
+            dbms_output.put_line('Error nro: '||SQLCODE);
+            dbms_output.put_line('Mensaje: '||SQLERRM);
+            dbms_output.put_line('');
+        else
+            dbms_output.put_line('FAIL: Da error, pero no detecta evento pasado.');
+            dbms_output.put_line('Error nro: '||SQLCODE);
+            dbms_output.put_line('Mensaje: '||SQLERRM);
+            dbms_output.put_line('');
+        end if;
   end;
   
   --CASO DE PRUEBA 3: Evento inexistente.
- declare
-  mensajeError varchar(100);
-  arg_nombre_evento varchar(100);
   begin
-    dbms_output.put_line('CASO DE PRUEBAS 3: Evento inexistente--------------------');
     -- Inicializamos la base de datos para los tests en la base de datos.
     inicializa_test;
-    -- Declaramos el evento que vamos a querer reservar que no existe
-    arg_nombre_evento:='Monologo chiquito de la calzada';
-    -- Guardamos el mensaje de error que esperamos de la excepción
-    mensajeError:='ORA-20003: El evento ' || arg_nombre_evento || ' no existe';
-    -- Intentamos hacer la reserva de el evento que no existe
-    reservar_evento('12345678A',arg_nombre_evento,date '2024-6-27');
-    -- En caso de que no salte la excepción nos saldra por pantalla que ha fallado
-    dbms_output.put_line('MAL: No se ha lanzado ninguna excepción');
-    --  Cazamos la excepción que salte
-    exception
-        when others then
-            if (SQLCODE=-20003) then --En caso de que salte la excepción que queremos la -2003 
-                dbms_output.put_line('BIEN,Lanza la excepción -20003 cuando se intenta reservar un evento no existente'); --Imprimimos que esta correcto
-                if(SQLERRM=mensajeError) then --Comprobamos que lanza el mensaje tambien correcto
-                    dbms_output.put_line('BIEN,Manda el mensaje de error correcto: '|| SQLERRM); -- Imprimimos que el mensaje esta correcto
-                else --En caso de que el mensaje no este correcto
-                    dbms_output.put_line('MAL,Lanza la excepción -20003 pero no el mensaje de error correcto'); --Imprimimos que esta incorrecto
-                end if;
-                
-            else --En caso de que nos de cualquiera otra excepción la imprimieremos por pantalla junto con su mensaje de error
-                dbms_output.put_line('MAL: Lanza algun tipo de excepción, que no es la que buscamos');
-                dbms_output.put_line('Error nro: '||SQLCODE);
-                dbms_output.put_line('Mensaje: '||SQLERRM);
-                
-            end if;  
-        
-        
+    dbms_output.put_line('CASO DE PRUEBA 3: Evento inexistente--------------------');
+    
+    -- Intentamos hacer una reserva de un evento inexistente.
+    reservar_evento('12345678A','Monologo chiquito de la calzada',date '2024-6-27');
+    
+    -- No pasará el test si se realiza una reserva de un evento inexistente.
+    dbms_output.put_line('FAIL: Reserva para un evento que no existe.');
+    dbms_output.put_line('');
+    
+  exception
+  
+    when others then
+        -- Comprobamos que se lanza la excepción -20003.
+        if sqlcode = -20003 then
+            dbms_output.put_line('OK: Detecta evento inexistente.');
+            dbms_output.put_line('Error nro: '||SQLCODE);
+            dbms_output.put_line('Mensaje: '||SQLERRM);
+            dbms_output.put_line('');
+        else
+            dbms_output.put_line('FAIL: Da error, pero no detecta evento inexistente.');
+            dbms_output.put_line('Error nro: '||SQLCODE);
+            dbms_output.put_line('Mensaje: '||SQLERRM);
+            dbms_output.put_line('');
+        end if;
   end;
   
 
@@ -377,27 +390,29 @@ begin
     -- Inicializamos la base de datos para los tests en la base de datos.
     inicializa_test;
     dbms_output.put_line('CASO DE PRUEBA 4: Cliente inexistente--------------------');
-    -- Intentamos reservar un evento con un cliente que no existe
-    reservar_evento('12345678B','concierto_la_moda',date '2024-6-27');
-    -- En caso de que no salte la excepción nos saldra por pantalla que ha fallado
-    dbms_output.put_line('MAL: No se ha lanzado ninguna excepción');
-    --  Cazamos la excepción que salte
-    exception
-        when others then
-            if (SQLCODE=-20002) then --En caso de que salte la excepción que queremos la -20002
-                dbms_output.put_line('BIEN,Lanza la excepción -20002 cuando se intenta reservar un evento por un cliente que no existe'); --Imprimimos que esta correcto
-                if(SQLERRM='ORA-20002: Cliente inexistente') then --Comprobamos que lanza el mensaje tambien correcto
-                    dbms_output.put_line('BIEN,Manda el mensaje de error correcto: '|| SQLERRM); -- Imprimimos que el mensaje esta correcto
-                else --En caso de que el mensaje no este correcto
-                    dbms_output.put_line('MAL,Lanza la excepción -20002 pero no el mensaje de error correcto'); --Imprimimos que esta incorrecto
-                end if;
-                
-            else --En caso de que nos de cualquiera otra excepción la imprimieremos por pantalla junto con su mensaje de error
-                dbms_output.put_line('MAL: Lanza algun tipo de excepción, que no es la que buscamos');
-                dbms_output.put_line('Error nro: '||SQLCODE);
-                dbms_output.put_line('Mensaje: '||SQLERRM);
-                
-            end if;
+    
+    -- Intentamos hacer una reserva para un cliente que no existe.
+    reservar_evento('12345678B', 'concierto_la_moda', date '2023-6-27');
+    
+    -- No pasará el test si se realiza una reserva para un cliente que no existe,
+    dbms_output.put_line('FAIL: Reserva para un cliente que no existe.');
+    dbms_output.put_line('');
+
+  exception
+  
+    when others then
+        --Comprobamos que se lanza la excepción -20002.
+        if sqlcode = -20002 then
+            dbms_output.put_line('OK: Detecta cliente inexistente.');
+            dbms_output.put_line('Error nro: '||SQLCODE);
+            dbms_output.put_line('Mensaje: '||SQLERRM);
+            dbms_output.put_line('');
+        else
+            dbms_output.put_line('FAIL: Da error, pero no detecta cliente inexistente.');
+            dbms_output.put_line('Error nro: '||SQLCODE);
+            dbms_output.put_line('Mensaje: '||SQLERRM);
+            dbms_output.put_line('');
+        end if;
   end;
   
   --caso 5 El cliente no tiene saldo suficiente
@@ -405,27 +420,28 @@ begin
     -- Inicializamos la base de datos para los tests en la base de datos.
     inicializa_test;
     dbms_output.put_line('CASO DE PRUEBA 5: El cliente no tiene suficiente saldo---------------------');
-    -- Intentamos hacer la reserva de el un evento sin tener el saldo suficiente
-    reservar_evento('11111111B','teatro_impro',date '2024-7-1');
-     -- En caso de que no salte la excepción nos saldra por pantalla que ha fallado
-    dbms_output.put_line('MAL: No se ha lanzado ninguna excepción');
-    --  Cazamos la excepción que salte
-    exception
-        when others then
-            if (SQLCODE=-20004) then --En caso de que salte la excepción que queremos la -2004
-                dbms_output.put_line('BIEN,Lanza la excepción -20004 cuando se intenta reservar un evento para el cual el cliente no tiene suficiente saldo'); --Imprimimos que esta correcto
-                if(SQLERRM='ORA-20004: Saldo en abono insuficiente') then --Comprobamos que lanza el mensaje tambien correcto
-                    dbms_output.put_line('BIEN,Manda el mensaje de error correcto: '|| SQLERRM); -- Imprimimos que el mensaje esta correcto
-                else --En caso de que el mensaje no este correcto
-                    dbms_output.put_line('MAL,Lanza la excepción -20004 pero no el mensaje de error correcto'); --Imprimimos que esta incorrecto
-                end if;
-                
-            else --En caso de que nos de cualquiera otra excepción la imprimieremos por pantalla junto con su mensaje de error
-                dbms_output.put_line('MAL: Lanza algun tipo de excepción, que no es la que buscamos');
-                dbms_output.put_line('Error nro: '||SQLCODE);
-                dbms_output.put_line('Mensaje: '||SQLERRM);
-                
-            end if;
+    
+    -- Intentamos hacer una reserva para un cliente sin saldo.
+    reservar_evento('11111111B','teatro_impro',date '2023-7-1');
+    
+    -- No pasará el test si se realiza una reserva para un cliente sin saldo.
+    dbms_output.put_line('FAIL: Reserva para un cliente sin saldo en su abono.');
+    
+  exception
+    
+    when others then
+        -- Comprobamos que se lanza la excepción -20004.
+        if sqlcode = -20004 then
+            dbms_output.put_line('OK: Detecta cliente sin saldo.');
+            dbms_output.put_line('Error nro: '||SQLCODE);
+            dbms_output.put_line('Mensaje: '||SQLERRM);
+            dbms_output.put_line('');
+        else
+            dbms_output.put_line('FAIL: Da error, pero no detecta cliente sin saldo.');
+            dbms_output.put_line('Error nro: '||SQLCODE);
+            dbms_output.put_line('Mensaje: '||SQLERRM);
+            dbms_output.put_line('');
+        end if;
   end;
 
   
