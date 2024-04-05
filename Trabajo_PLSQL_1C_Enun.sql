@@ -192,19 +192,29 @@ end;
 /
 
 ------ Respuestas a las preguntas del enunciado:
--- * P4.1
+-- * P4.1 El resultado de la comprobación del paso 2 ¿sigue siendo fiable en el paso 3?:
+	
 -- El resultado de la comprobación del paso 2 va a seguir siendo fiable en el caso 3 puesto que hemos aplicado los mecanismos
 -- de control de concurrencia (excepciones y rollback) de la estrategia de programación defensiva //Posible fallo si hay muchas ejecuciones simultaneas//
--- * P4.2
--- En el paso 3, la ejecución concurrente de un mismo procedimiento reservar_evento podría añadir una reserva incompatible con 
--- nuestra reserva si la disponibilidad de plazas del evento o el saldo del abono del cliente cambian entre la comprobación en el paso 2 y la inserción 
--- de la reserva en la tabla reservas. 
+	
+-- * P4.2 En el paso 3, la ejecución concurrente del mismo procedimiento reservar_evento con, quizás
+-- otros o los mimos argumentos, ¿podría habernos añadido una reserva no recogida en esa SELECT
+-- que fuese incompatible con nuestra reserva?, ¿por qué?.
+	
+-- Se podría añadir una reserva incompatible con nuestra reserva si la disponibilidad de plazas del evento o el saldo del abono del cliente 
+-- cambian entre la comprobación en el paso 2 y la inserción de la reserva en la tabla reservas. 
 -- Esto puede deberse a la concurrencia en la base de datos, donde otras transacciones pueden realizar actualizaciones que afecten a las condiciones de la reserva.
--- * P4.3
+	
+-- * P4.3 . ¿Qué estrategia de programación has utilizado?:
+	
 -- Hemos utilizado una estrategia de programación defensiva.
--- * P4.4
+	
+-- * P4.4 ¿Cómo puede verse este hecho en tu código?
+	
 -- Este hecho lo podemos ver por cómo manejamos las excepciones y realizamos un rollback en caso de error durante el proceso de reserva. 
--- * P4.5
+	
+-- * P4.5 ¿De qué otro modo crees que podrías resolver el problema propuesto? Incluye elpseudocódigo.
+	
 -- Utilizando una estrategia de programación agresiva //Falta el pseudocódigo//
 
 
