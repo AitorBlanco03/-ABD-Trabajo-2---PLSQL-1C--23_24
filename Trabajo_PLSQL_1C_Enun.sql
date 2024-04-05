@@ -194,15 +194,18 @@ end;
 ------ Respuestas a las preguntas del enunciado:
 -- * P4.1
 -- El resultado de la comprobación del paso 2 va a seguir siendo fiable en el caso 3 puesto que hemos aplicado los mecanismos
--- de control de concurrencia (excepciones y rollback) de la estrategia de programación defensiva
+-- de control de concurrencia (excepciones y rollback) de la estrategia de programación defensiva //Posible fallo si hay muchas ejecuciones simultaneas//
 -- * P4.2
---
+-- En el paso 3, la ejecución concurrente de un mismo procedimiento reservar_evento podría añadir una reserva incompatible con 
+-- nuestra reserva si la disponibilidad de plazas del evento o el saldo del abono del cliente cambian entre la comprobación en el paso 2 y la inserción 
+-- de la reserva en la tabla reservas. 
+-- Esto puede deberse a la concurrencia en la base de datos, donde otras transacciones pueden realizar actualizaciones que afecten a las condiciones de la reserva.
 -- * P4.3
 -- Hemos utilizado una estrategia de programación defensiva.
 -- * P4.4
 -- Este hecho lo podemos ver por cómo manejamos las excepciones y realizamos un rollback en caso de error durante el proceso de reserva. 
 -- * P4.5
--- Utilizando una estrategia de programación agresiva
+-- Utilizando una estrategia de programación agresiva //Falta el pseudocódigo//
 
 
 -- Procedimiento almacenado para reinicar una secuencia.
