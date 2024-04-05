@@ -193,15 +193,16 @@ end;
 
 ------ Respuestas a las preguntas del enunciado:
 -- * P4.1
---
+-- El resultado de la comprobación del paso 2 va a seguir siendo fiable en el caso 3 puesto que hemos aplicado los mecanismos
+-- de control de concurrencia (excepciones y rollback) de la estrategia de programación defensiva
 -- * P4.2
 --
 -- * P4.3
--- Hemos utilizado una estrategia de programación defensiva
+-- Hemos utilizado una estrategia de programación defensiva.
 -- * P4.4
---
+-- Este hecho lo podemos ver por cómo manejamos las excepciones y realizamos un rollback en caso de error durante el proceso de reserva. 
 -- * P4.5
--- 
+-- Utilizando una estrategia de programación agresiva
 
 
 -- Procedimiento almacenado para reinicar una secuencia.
