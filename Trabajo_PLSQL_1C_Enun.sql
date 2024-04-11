@@ -8,7 +8,7 @@
  *      - Aitor Blanco Fernández (abf1005@alu.ubu.es)
  *
  * Github: https://github.com/AitorBlanco03/-ABD-Trabajo-2---PLSQL-1C--23_24.git
- * Versión: 4.0
+ * Versión: 5.0
  */
 
 -- Se eliminan las tablas existentes en caso de que ya existan.
@@ -109,10 +109,12 @@ create or replace procedure reservar_evento( arg_NIF_cliente varchar,
         -- Obtenemos la fecha del evento a partir del nombre del evento.
         select fecha into v_fecha_evento
         from eventos
-        where nombre_evento = arg_nombre_evento;
+        where nombre_evento = arg_nombre_evento
+        for update;
         
         -- Si la fecha del evento es anterior a la proporcionada, lanzamos la excepción -20001.
         if v_fecha_evento < arg_fecha then
+            rollback;
             raise_application_error(-20001, 'No se pueden reservar eventos pasados');
         end if;
         
@@ -120,6 +122,7 @@ create or replace procedure reservar_evento( arg_NIF_cliente varchar,
     
         -- Si el evento no se encuentra, reformulamos la excepción no_data_found y lanzamos la excepción -20003.
         when no_data_found then
+            rollback;
             raise_application_error(-20003, 'El evento ' || arg_nombre_evento || ' no existe');
             
     end;
@@ -130,20 +133,24 @@ create or replace procedure reservar_evento( arg_NIF_cliente varchar,
         -- Obtenemos la disponibilidad de plazas a partir del nombre del evento.
         select asientos_disponibles into v_asientos_disponibles
         from eventos
-        where nombre_evento = arg_nombre_evento;
+        where nombre_evento = arg_nombre_evento
+        for update;
         
         -- Si no hay suficientes asientos disponibles, lanzamos la excepción -20005.
         if v_asientos_disponibles <= 0 then
+            rollback;
             raise_application_error(-20005, 'No hay suficientes asientos disponibles para ' || arg_nombre_evento);
         end if;
         
         -- Obtenemos el saldo del abono del cliente.
         select saldo into v_saldo_abono
         from abonos
-        where cliente = arg_NIF_cliente;
+        where cliente = arg_NIF_cliente
+        for update;
         
         -- Si el cliente no tiene suficiente saldo en su abono, lanzamos la excepción -20004.
         if v_saldo_abono <= 0 then
+            rollback;
             raise_application_error(-20004, 'Saldo en abono insuficiente');
         end if;
         
@@ -151,6 +158,7 @@ create or replace procedure reservar_evento( arg_NIF_cliente varchar,
     
         -- Si el cliente no se encuentra, reformulamos la excepción no_data_found y lanzamos la excepción -20002.
         when no_data_found then
+            rollback;
             raise_application_error(-20002, 'Cliente inexistente');
         
     end;
@@ -192,39 +200,43 @@ end;
 /
 
 ------ Respuestas a las preguntas del enunciado:
---
+
 -- * P4.1 . El resultado de la comprobación del paso 2 ¿sigue siendo fiable en el paso 3?:
+
 -- Sí, el resultado de la comprobación del paso 2 sigue siendo fiable en el paso 3. Esto se debe
 -- principalmente a que las condiciones verificadas en el paso 2, se evaluán nuevamente antes de
 -- realizar la reserva en el paso 3.
---
+
 -- * P4.2 . En el paso 3, la ejecución concurrente del mismo procedimiento reservar_evento con, quizás otros o los mismos argumentos, 
 -- ¿podría habernos añadido una reserva no recogida en esa SELECT que fuese incompatible con nuestra reserva?, ¿por qué?.
--- Si, debido a la ejecución concurrente del mismo procedimiento de reserva, algunas transacciones pueden cambiar
--- los datos de la base de datos, lo que podría llegar a generar reservas incompatibles.
---
+
+-- No, porque al incluir las cláusulas 'FOR UPDATE' nos permite asegurar que ninguna otra reserva pueda modificar esas filas
+-- mientras se esté llevando a cabo una reserva.
+
 -- * P4.3 . ¿Qué estrategia de programación has utilizado?:
+
 -- Hemos utilizado una estrategia defensiva. Esta estrategia se basa en anticipar posibles errores
 -- o condiciones inesperadas y manejarlas de manera proactiva mediante el uso de excepciones y
 -- rollback. En lugar de confiar de que todas las operaciones se ejecuten sin problemas, nos
 -- preparamos para manejar cualquier situación inesperada de manera segura.
---
+
 -- * P4.4 ¿Cómo puede verse este hecho en tu código?
--- En el código, la estrategia defensiva se puede ver el manejo de excepciones, donde capturamos
--- los posibles errores y tomamos las medidas adecuadas para manejarlos, como el uso de un rollback
--- para deshacer los cambios en caso de que ocurra un error.
--- 
+
+-- En el código, la estrategia defensiva se puede ver en el manejo de excepciones, donde anticipamos
+-- los posibles errores y tomamos las medidas adecuadas para manejarlos antes de realizar la reserva del evento.
+
 -- * P4.5 ¿De qué otro modo crees que podrías resolver el problema propuesto? Incluye el pseudocódigo.
+
 -- Otro manera de implementar reservar_evento es optar una estrategia agresiva.
--- 
+
 -- PSEUDOCÓDIGO:
 --  1.- Actualizar y reducir el número de plazas para el evento.
 --      - Si no se encuentra el evento o si el evento ya ha pasado, lanzamos la excepción correspondiente,
 --  2.- Actualizar y reducir el saldo del abono.
 --      - Si no se encuentra el cliente o si el cliente no tiene suficiente saldo, lanzamos la excepción correspondiente.
 --  3.- Realizar la reserva.
---      - Si ocurré algún error, revirtimos todos los cambios realizados.
---
+--      - Si ocurré algún error, revertimos todos los cambios realizados.
+
 
 
 -- Procedimiento almacenado para reinicar una secuencia.
@@ -288,6 +300,7 @@ begin
     -- Iniciamos la base de datos para los tests en la base de datos.
     inicializa_test;
     dbms_output.put_line('CASO DE PRUEBA 1: Reserva correcta--------------------');
+    dbms_output.put_line('');
     
     -- Realizamos una reserva de manera correcta con datos válidos.
     reservar_evento('12345678A','concierto_la_moda',date '2024-6-27');
@@ -329,6 +342,7 @@ begin
     -- Inicializamos la base de datos para los tests en la base de datos.
     inicializa_test;
     dbms_output.put_line('CASO DE PRUEBAS 2: Evento pasado--------------------');
+    dbms_output.put_line('');
     
     -- Intentamos hacer una reserva de un evento pasado.
     reservar_evento('12345678A', 'concierto_la_moda', date '2024-9-25');
@@ -359,6 +373,7 @@ begin
     -- Inicializamos la base de datos para los tests en la base de datos.
     inicializa_test;
     dbms_output.put_line('CASO DE PRUEBA 3: Evento inexistente--------------------');
+    dbms_output.put_line('');
     
     -- Intentamos hacer una reserva de un evento inexistente.
     reservar_evento('12345678A','Monologo chiquito de la calzada',date '2024-6-27');
@@ -390,6 +405,7 @@ begin
     -- Inicializamos la base de datos para los tests en la base de datos.
     inicializa_test;
     dbms_output.put_line('CASO DE PRUEBA 4: Cliente inexistente--------------------');
+    dbms_output.put_line('');
     
     -- Intentamos hacer una reserva para un cliente que no existe.
     reservar_evento('12345678B', 'concierto_la_moda', date '2023-6-27');
@@ -420,12 +436,14 @@ begin
     -- Inicializamos la base de datos para los tests en la base de datos.
     inicializa_test;
     dbms_output.put_line('CASO DE PRUEBA 5: El cliente no tiene suficiente saldo---------------------');
+    dbms_output.put_line('');
     
     -- Intentamos hacer una reserva para un cliente sin saldo.
     reservar_evento('11111111B','teatro_impro',date '2023-7-1');
     
     -- No pasará el test si se realiza una reserva para un cliente sin saldo.
     dbms_output.put_line('FAIL: Reserva para un cliente sin saldo en su abono.');
+    dbms_output.put_line('');
     
   exception
     
